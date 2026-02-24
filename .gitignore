@@ -1,0 +1,28 @@
+# ── PyInstaller ───────────────────────
+dist/
+build/
+*.spec
+SHIELD_USB/
+
+# ── Python cache ───────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ── NEVER commit these ─────────────────
+shield.exe
+*.exe
+shield_log.txt
+*.log
+*.txt
+
+# ── OS clutter ─────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ────────────────────────────────
+.vscode/
+.idea/
+*.suo

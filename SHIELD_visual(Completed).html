@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHIELD — Endpoint Kill Switch</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --ink:     #0a0a0b;
+  --paper:   #0e0e10;
+  --lift:    #141417;
+  --rule:    #222228;
+  --muted:   #3a3a45;
+  --body:    #7a7a8c;
+  --white:   #e8e8f0;
+  --red:     #e63340;
+  --red-dim: #e6334018;
+  --red-mid: #e6334040;
+  --green:   #2dd174;
+  --amber:   #f0a500;
+  --mono:    'DM Mono', monospace;
+  --display: 'Bebas Neue', sans-serif;
+  --text:    'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--ink);
+  color: var(--white);
+  font-family: var(--text);
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRAIN TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 9999; opacity: .4;
+}
+
+/* ── NAV ── */
+nav {
+  position: sticky; top: 0; z-index: 500;
+  background: rgba(10,10,11,.97);
+  border-bottom: 1px solid var(--rule);
+  padding: 0 48px;
+  display: flex; align-items: center; gap: 0;
+  backdrop-filter: blur(8px);
+}
+.nav-wordmark {
+  font-family: var(--display);
+  font-size: 22px; letter-spacing: .12em;
+  color: var(--white);
+  padding: 14px 32px 14px 0;
+  border-right: 1px solid var(--rule);
+  margin-right: 8px;
+}
+.nav-wordmark span { color: var(--red); }
+.nav-item {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+  color: var(--muted); text-transform: uppercase; text-decoration: none;
+  padding: 17px 16px; border: none; background: none; cursor: pointer;
+  transition: color .15s;
+}
+.nav-item:hover { color: var(--white); }
+.nav-author {
+  margin-left: auto;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+  color: var(--muted); text-transform: uppercase;
+}
+.nav-author strong { color: var(--red); font-weight: 400; }
+
+/* ── SECTIONS ── */
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 48px; }
+.section { padding: 96px 0; }
+.section-inner { max-width: 1080px; margin: 0 auto; padding: 0 48px; }
+
+.eyebrow {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .25em;
+  color: var(--red); text-transform: uppercase;
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 20px;
+}
+.eyebrow::after { content: ''; flex: 1; height: 1px; background: var(--rule); max-width: 120px; }
+
+h2 {
+  font-family: var(--display); font-size: clamp(40px,5vw,64px);
+  letter-spacing: .08em; line-height: 1; color: var(--white);
+  margin-bottom: 40px;
+}
+h2 em { color: var(--red); font-style: normal; }
+
+.rule { border: none; border-top: 1px solid var(--rule); }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100vh; position: relative; z-index: 1;
+  display: grid; grid-template-rows: 1fr auto;
+  overflow: hidden;
+}
+.hero-content {
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 0 48px 64px; max-width: 1080px; margin: 0 auto; width: 100%;
+}
+.hero-kicker {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .3em;
+  text-transform: uppercase; color: var(--red); margin-bottom: 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-kicker::before { content: ''; width: 32px; height: 1px; background: var(--red); }
+
+.hero-heading {
+  font-family: var(--display);
+  font-size: clamp(80px, 16vw, 200px);
+  letter-spacing: .04em; line-height: .9;
+  color: var(--white); margin-bottom: 0;
+}
+.hero-heading .accent { color: var(--red); }
+
+.hero-rule { border: none; border-top: 1px solid var(--rule); margin: 32px 48px 0; }
+
+.hero-meta {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--rule);
+}
+.hero-meta-item {
+  padding: 24px 48px;
+  border-right: 1px solid var(--rule);
+}
+.hero-meta-item:last-child { border-right: none; }
+.meta-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+}
+.meta-value {
+  font-family: var(--mono); font-size: 13px; color: var(--white);
+  font-weight: 500;
+}
+.meta-value.red { color: var(--red); }
+.meta-value.green { color: var(--green); }
+
+/* background large text */
+.hero-bg-text {
+  position: absolute; right: -20px; top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--display); font-size: 28vw; letter-spacing: -.02em;
+  color: transparent; -webkit-text-stroke: 1px rgba(230,51,64,.06);
+  pointer-events: none; user-select: none; line-height: 1;
+  z-index: 0;
+}
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4,1fr);
+  border-bottom: 1px solid var(--rule);
+}
+.stat {
+  padding: 40px 48px;
+  border-right: 1px solid var(--rule);
+}
+.stat:last-child { border-right: none; }
+.stat-n {
+  font-family: var(--display); font-size: 52px; letter-spacing: .04em;
+  color: var(--red); line-height: 1; margin-bottom: 8px;
+}
+.stat-l {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--muted); line-height: 1.5;
+}
+
+/* ── FEATURE CARDS ── */
+.feature-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--rule); }
+.feature-card {
+  background: var(--paper); padding: 40px;
+  cursor: pointer; transition: background .2s;
+  position: relative; overflow: hidden;
+}
+.feature-card::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--red); transform: scaleX(0); transform-origin: left;
+  transition: transform .3s ease;
+}
+.feature-card:hover { background: var(--lift); }
+.feature-card:hover::after { transform: scaleX(1); }
+.fc-num {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .2em;
+  color: var(--muted); margin-bottom: 24px;
+}
+.fc-title {
+  font-family: var(--display); font-size: 28px; letter-spacing: .08em;
+  color: var(--white); margin-bottom: 12px; line-height: 1.1;
+}
+.fc-body { font-size: 13px; color: var(--body); line-height: 1.7; }
+.fc-cta {
+  margin-top: 20px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .15em; text-transform: uppercase; color: var(--red);
+}
+
+/* ── SLIDESHOW ── */
+.slideshow-wrap {
+  background: var(--paper); border: 1px solid var(--rule);
+}
+.ss-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 32px; border-bottom: 1px solid var(--rule);
+}
+.ss-header-title {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .15em;
+  text-transform: uppercase; color: var(--white);
+}
+.ss-counter {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted);
+}
+.ss-body { padding: 48px; min-height: 380px; }
+.slide { display: none; }
+.slide.active { display: grid; grid-template-columns: 1fr 1.6fr; gap: 48px; animation: sIn .25s ease; }
+@keyframes sIn { from { opacity:0; transform: translateX(12px); } to { opacity:1; transform: none; } }
+.slide-left {}
+.slide-step {
+  font-family: var(--display); font-size: 96px; letter-spacing: .04em;
+  color: var(--red); line-height: 1; opacity: .5; margin-bottom: 16px;
+}
+.slide-title {
+  font-family: var(--display); font-size: 32px; letter-spacing: .08em;
+  color: var(--white); line-height: 1.1; margin-bottom: 8px;
+}
+.slide-sub {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--red); margin-bottom: 20px;
+}
+.slide-body-text { font-size: 14px; color: var(--body); line-height: 1.8; }
+.slide-body-text strong { color: var(--white); font-weight: 400; }
+.slide-body-text code {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--lift); padding: 2px 7px; border-radius: 2px; color: var(--red);
+}
+.slide-right {}
+
+/* TERMINAL */
+.term {
+  background: var(--ink); border: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.9;
+  overflow: hidden;
+}
+.term-bar {
+  background: var(--lift); padding: 10px 16px;
+  display: flex; align-items: center; gap: 6px;
+  border-bottom: 1px solid var(--rule);
+}
+.tb { width: 10px; height: 10px; border-radius: 50%; }
+.tb.r { background: #ff5f57; }
+.tb.y { background: #febc2e; }
+.tb.g { background: #28c840; }
+.tl { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--muted); margin-left: 8px; flex: 1; }
+.term-body { padding: 20px; }
+.t-prompt { color: #444455; }
+.t-cmd { color: var(--white); }
+.t-ok { color: var(--green); }
+.t-cm { color: var(--muted); font-style: italic; }
+.t-kw { color: var(--red); }
+.t-hl { color: var(--white); font-weight: 500; }
+
+.copy-pill {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .15em;
+  text-transform: uppercase; background: none; border: 1px solid var(--rule);
+  color: var(--muted); padding: 3px 10px; cursor: pointer; transition: all .15s;
+}
+.copy-pill:hover { border-color: var(--red); color: var(--red); }
+.copy-pill.ok { border-color: var(--green); color: var(--green); }
+
+.ss-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; border-top: 1px solid var(--rule);
+}
+.ss-btn {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .15em;
+  text-transform: uppercase; background: none; border: 1px solid var(--rule);
+  color: var(--muted); padding: 8px 20px; cursor: pointer; transition: all .15s;
+}
+.ss-btn:hover:not(:disabled) { border-color: var(--white); color: var(--white); }
+.ss-btn:disabled { opacity: .25; cursor: not-allowed; }
+.ss-dots { display: flex; gap: 6px; }
+.dot {
+  width: 6px; height: 6px; background: var(--rule); cursor: pointer; transition: all .2s;
+}
+.dot.active { background: var(--red); }
+
+/* ── ALERTS ── */
+.alert {
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 20px 24px; margin-bottom: 24px;
+  border-left: 2px solid;
+}
+.alert.warn { border-color: var(--amber); background: #f0a50008; }
+.alert.warn p { font-size: 13px; color: #f0a50090; line-height: 1.6; }
+.alert.warn strong { color: var(--amber); font-weight: 400; }
+.alert.info { border-color: var(--red); background: var(--red-dim); }
+.alert.info p { font-size: 13px; color: #e6334090; line-height: 1.6; }
+.alert.info strong { color: var(--red); font-weight: 400; }
+.alert-icon { font-family: var(--mono); font-size: 11px; color: inherit; flex-shrink: 0; margin-top: 2px; letter-spacing: .1em; }
+
+/* ── CODE GRID ── */
+.code-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: var(--rule); }
+.code-card {
+  background: var(--paper); padding: 32px;
+  cursor: pointer; transition: background .2s; position: relative; overflow: hidden;
+}
+.code-card:hover { background: var(--lift); }
+.code-card::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
+  background: var(--red); transform: scaleY(0); transform-origin: top;
+  transition: transform .3s ease;
+}
+.code-card:hover::before { transform: scaleY(1); }
+.cc-fn { font-family: var(--mono); font-size: 12px; color: var(--green); margin-bottom: 4px; font-weight: 500; }
+.cc-sig { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 12px; }
+.cc-desc { font-size: 12.5px; color: var(--body); line-height: 1.6; }
+.cc-tag {
+  display: inline-block; margin-top: 14px; font-family: var(--mono); font-size: 9px;
+  letter-spacing: .12em; padding: 3px 8px; text-transform: uppercase; border: 1px solid;
+}
+.cc-tag.c { color: var(--red); border-color: var(--red-mid); background: var(--red-dim); }
+.cc-tag.g { color: var(--green); border-color: #2dd17440; background: #2dd17410; }
+.cc-tag.a { color: var(--amber); border-color: #f0a50040; background: #f0a50010; }
+
+/* ── FLOW ── */
+.flow-list { max-width: 640px; margin: 0 auto; }
+.flow-item {
+  display: grid; grid-template-columns: 48px 1fr;
+  gap: 0; cursor: pointer;
+}
+.flow-left { display: flex; flex-direction: column; align-items: center; }
+.flow-circle {
+  width: 36px; height: 36px; border: 1px solid var(--rule);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  flex-shrink: 0; transition: all .2s; background: var(--paper);
+}
+.flow-item:hover .flow-circle { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+.flow-connector { width: 1px; flex: 1; background: var(--rule); margin: 4px auto; min-height: 32px; }
+.flow-right {
+  padding: 8px 0 32px 20px;
+}
+.flow-label { font-family: var(--mono); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.flow-title { font-size: 15px; font-weight: 400; color: var(--white); margin-bottom: 4px; }
+.flow-desc { font-size: 12px; color: var(--body); line-height: 1.5; }
+.flow-cta { font-family: var(--mono); font-size: 9px; letter-spacing: .15em; text-transform: uppercase; color: var(--red); margin-top: 6px; }
+
+/* ── LOG ── */
+.log-block {
+  background: var(--ink); border: 1px solid var(--rule);
+  font-family: var(--mono); font-size: 11.5px; line-height: 2;
+  padding: 24px 28px;
+}
+.log-ts { color: var(--muted); }
+.log-sep { color: var(--rule); }
+.log-tag { color: var(--red); }
+.log-msg { color: var(--green); }
+.log-divider { color: var(--muted); }
+
+/* ── ETHICS ── */
+.ethics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); }
+.ethics-col { background: var(--paper); padding: 40px; }
+.ethics-heading {
+  font-family: var(--display); font-size: 22px; letter-spacing: .1em;
+  margin-bottom: 24px;
+}
+.ethics-col.do .ethics-heading { color: var(--green); }
+.ethics-col.dont .ethics-heading { color: var(--red); }
+.ethics-list { list-style: none; }
+.ethics-list li {
+  font-size: 13px; color: var(--body); padding: 10px 0;
+  border-bottom: 1px solid var(--rule); display: flex; gap: 12px; line-height: 1.5;
+}
+.ethics-list li:last-child { border: none; }
+.do .ethics-list li::before { content: '+'; color: var(--green); font-family: var(--mono); flex-shrink: 0; }
+.dont .ethics-list li::before { content: '×'; color: var(--red); font-family: var(--mono); flex-shrink: 0; }
+
+/* ── MODAL ── */
+.overlay {
+  position: fixed; inset: 0; z-index: 2000;
+  background: rgba(0,0,0,.92);
+  display: none; align-items: center; justify-content: center; padding: 24px;
+  backdrop-filter: blur(6px);
+}
+.overlay.open { display: flex; animation: ov .2s ease; }
+@keyframes ov { from { opacity:0; } to { opacity:1; } }
+.modal {
+  background: var(--paper); border: 1px solid var(--rule);
+  max-width: 600px; width: 100%; max-height: 80vh; overflow-y: auto;
+  animation: mup .2s ease;
+}
+@keyframes mup { from { opacity:0; transform: translateY(16px); } to { opacity:1; transform: none; } }
+.modal-top {
+  padding: 32px 36px 0;
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+}
+.modal-title { font-family: var(--display); font-size: 28px; letter-spacing: .08em; color: var(--white); line-height: 1.1; }
+.modal-x {
+  background: none; border: 1px solid var(--rule); color: var(--muted);
+  width: 32px; height: 32px; min-width: 32px; cursor: pointer;
+  font-family: var(--mono); font-size: 12px; display: flex;
+  align-items: center; justify-content: center; transition: all .15s;
+}
+.modal-x:hover { border-color: var(--red); color: var(--red); }
+.modal-sub {
+  padding: 6px 36px 0;
+  font-family: var(--mono); font-size: 9px; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--red);
+}
+.modal-content {
+  padding: 24px 36px 36px;
+  font-size: 13.5px; color: var(--body); line-height: 1.8;
+}
+.modal-content p { margin-bottom: 14px; }
+.modal-content p:last-child { margin-bottom: 0; }
+.modal-content strong { color: var(--white); font-weight: 400; }
+.modal-content code {
+  font-family: var(--mono); font-size: 11px;
+  background: var(--lift); padding: 2px 6px; color: var(--red);
+}
+
+footer {
+  border-top: 1px solid var(--rule);
+  padding: 40px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.footer-left { font-family: var(--display); font-size: 20px; letter-spacing: .12em; color: var(--muted); }
+.footer-left span { color: var(--red); }
+.footer-right { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); text-align: right; line-height: 2; }
+.footer-right a { color: var(--body); text-decoration: none; }
+
+@media (max-width: 768px) {
+  nav { padding: 0 20px; }
+  .hero-content { padding: 0 20px 48px; }
+  .hero-meta { grid-template-columns: 1fr 1fr; }
+  .hero-meta-item { padding: 20px; }
+  .section-inner { padding: 0 20px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .stat { padding: 28px 20px; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .slide.active { grid-template-columns: 1fr; }
+  .slide-step { font-size: 64px; }
+  .code-grid { grid-template-columns: 1fr 1fr; }
+  .ethics-grid { grid-template-columns: 1fr; }
+  .footer-left { display: none; }
+  .wrap { padding: 0 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-wordmark">SHIEL<span>D</span></div>
+  <button class="nav-item" onclick="go('about')">Overview</button>
+  <button class="nav-item" onclick="go('setup')">Setup</button>
+  <button class="nav-item" onclick="go('code')">Code</button>
+  <button class="nav-item" onclick="go('flow')">Flow</button>
+  <button class="nav-item" onclick="go('ethics')">Ethics</button>
+  <div class="nav-author">by <strong>SaruProDev</strong></div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-bg-text">S</div>
+  <div class="hero-content">
+    <p class="hero-kicker">Endpoint Kill Switch &nbsp;&mdash;&nbsp; Windows 10 / 11</p>
+    <h1 class="hero-heading">SHIEL<span class="accent">D</span></h1>
+  </div>
+  <div class="hero-rule"></div>
+  <div class="hero-meta">
+    <div class="hero-meta-item">
+      <div class="meta-label">Type</div>
+      <div class="meta-value">Defensive Security</div>
+    </div>
+    <div class="hero-meta-item">
+      <div class="meta-label">Language</div>
+      <div class="meta-value">Python 3.8+</div>
+    </div>
+    <div class="hero-meta-item">
+      <div class="meta-label">Status</div>
+      <div class="meta-value green">Tested &amp; Confirmed</div>
+    </div>
+    <div class="hero-meta-item">
+      <div class="meta-label">Author</div>
+      <div class="meta-value red">SaruProDev</div>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section id="about" class="section">
+  <div class="section-inner">
+    <p class="eyebrow">Overview</p>
+    <h2>What is <em>SHIELD</em></h2>
+
+    <div class="stats-row" style="margin-bottom:48px;">
+      <div class="stat"><div class="stat-n" data-target="500">0</div><div class="stat-l">ms detection<br>interval</div></div>
+      <div class="stat"><div class="stat-n" data-target="3">0</div><div class="stat-l">simultaneous<br>shutdown methods</div></div>
+      <div class="stat"><div class="stat-n" data-target="291">0</div><div class="stat-l">processes killed<br>in live test</div></div>
+      <div class="stat"><div class="stat-n" data-target="0">0</div><div class="stat-l">UAC prompts<br>shown</div></div>
+    </div>
+
+    <div class="alert info" style="margin-bottom:40px;">
+      <div class="alert-icon">INFO</div>
+      <p>SHIELD converts a standard USB drive into a physical kill switch. On insertion, it <strong>silently acquires elevated privileges</strong>, <strong>wipes the clipboard</strong>, <strong>terminates every running process in parallel</strong>, and <strong>forces an immediate shutdown via three redundant methods</strong>. No prompts. No warnings. No delay.</p>
+    </div>
+
+    <div class="feature-grid">
+      <div class="feature-card" onclick="openM('m-uac')">
+        <div class="fc-num">01 &mdash; Elevation</div>
+        <div class="fc-title">SILENT UAC BYPASS</div>
+        <div class="fc-body">Uses the Windows advapi32 token API to directly acquire SeShutdownPrivilege and SeDebugPrivilege. No dialog box. No user interaction. Falls back to a SYSTEM-level scheduled task if needed.</div>
+        <div class="fc-cta">Read more &rarr;</div>
+      </div>
+      <div class="feature-card" onclick="openM('m-kill')">
+        <div class="fc-num">02 &mdash; Termination</div>
+        <div class="fc-title">KILL EVERYTHING</div>
+        <div class="fc-body">Enumerates every running process and terminates them simultaneously across parallel threads. Maximum wait: 0.5 seconds. After that, shutdown fires regardless of whether all processes have exited.</div>
+        <div class="fc-cta">Read more &rarr;</div>
+      </div>
+      <div class="feature-card" onclick="openM('m-shutdown')">
+        <div class="fc-num">03 &mdash; Shutdown</div>
+        <div class="fc-title">TRIPLE REDUNDANCY</div>
+        <div class="fc-body">Three shutdown methods fire simultaneously: the Windows shutdown command, the InitiateSystemShutdownExW Win32 API, and a SYSTEM-level scheduled task. If one is blocked, the others execute.</div>
+        <div class="fc-cta">Read more &rarr;</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- SETUP -->
+<section id="setup" class="section">
+  <div class="section-inner">
+    <p class="eyebrow">Setup Guide</p>
+    <h2>Get <em>Running</em></h2>
+
+    <div class="alert warn" style="margin-bottom:32px;">
+      <div class="alert-icon" style="color:var(--amber)">WARN</div>
+      <p><strong>Save all open work before testing.</strong> SHIELD shuts the machine down with no save prompts and no recovery window. There is no undo once it triggers.</p>
+    </div>
+
+    <div class="slideshow-wrap">
+      <div class="ss-header">
+        <div class="ss-header-title" id="ss-title">Step 01 &mdash; Verify Python</div>
+        <div class="ss-counter" id="ss-ct">01 / 07</div>
+      </div>
+
+      <div class="ss-body">
+
+        <div class="slide active" id="s1">
+          <div class="slide-left">
+            <div class="slide-step">01</div>
+            <div class="slide-title">VERIFY PYTHON</div>
+            <div class="slide-sub">Prerequisites</div>
+            <div class="slide-body-text">Press <strong>Win + R</strong>, type <code>cmd</code>, press Enter. Run the command shown. A version number confirms Python is installed and on PATH.<br><br>If the command is not found, reinstall Python from <strong>python.org</strong> and tick <strong>Add Python to PATH</strong> during setup.</div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">cmd.exe</div></div>
+              <div class="term-body"><pre><span class="t-prompt">C:\&gt; </span><span class="t-cmd">python --version</span>
+<span class="t-cm">Python 3.x.x</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s2">
+          <div class="slide-left">
+            <div class="slide-step">02</div>
+            <div class="slide-title">BUILD SHIELD.EXE</div>
+            <div class="slide-sub">Compilation</div>
+            <div class="slide-body-text">Double-click <strong>build.bat</strong> inside your SHIELD project folder. It installs PyInstaller automatically if not present and compiles <code>killswitch.py</code> into a single silent executable.<br><br>Build time is approximately 30&ndash;60 seconds. Output: <code>SHIELD_USB\shield.exe</code></div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">build.bat</div></div>
+              <div class="term-body"><pre><span class="t-cm">[check] Python 3.x.x found.</span>
+<span class="t-cm">[*] Installing PyInstaller...</span>
+<span class="t-cm">[*] Compiling killswitch.py...</span>
+<span class="t-ok">[OK] shield.exe ready in .\SHIELD_USB\</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s3">
+          <div class="slide-left">
+            <div class="slide-step">03</div>
+            <div class="slide-title">LABEL THE USB</div>
+            <div class="slide-sub">USB Preparation</div>
+            <div class="slide-body-text">Plug in your USB drive. In File Explorer: right-click the drive &rarr; <strong>Properties</strong> &rarr; change the volume label to exactly <code>SHIELD</code>.<br><br>All caps. No spaces. Case-sensitive.<br><br>Then copy <strong>shield.exe</strong> from <code>SHIELD_USB\</code> directly to the root of the drive &mdash; not inside any folder.</div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">Volume Label</div></div>
+              <div class="term-body"><pre><span class="t-hl" style="font-size:18px;letter-spacing:.2em">SHIELD</span>
+
+<span class="t-cm">All caps. Exactly as shown.</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s4">
+          <div class="slide-left">
+            <div class="slide-step">04</div>
+            <div class="slide-title">OPEN POWERSHELL</div>
+            <div class="slide-sub">Manual Setup &mdash; Step 1</div>
+            <div class="slide-body-text">Right-click the Start button &rarr; <strong>Terminal (Admin)</strong> or <strong>Windows PowerShell (Admin)</strong>. Approve the UAC prompt.<br><br>Run the commands shown. The path must be quoted &mdash; the space in the folder name will cause an error without quotes.</div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">PowerShell (Admin)</div><button class="copy-pill" onclick="cp('Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force',this)">copy</button></div>
+              <div class="term-body"><pre><span class="t-prompt">PS&gt; </span><span class="t-cmd">Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force</span>
+<span class="t-prompt">PS&gt; </span><span class="t-cmd">cd <span class="t-kw">"C:\Cybersecurity Projects\SHIELD"</span></span>
+<span class="t-prompt">PS&gt; </span><span class="t-cmd">dir</span>   <span class="t-cm">&#x2190; confirm files are present</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s5">
+          <div class="slide-left">
+            <div class="slide-step">05</div>
+            <div class="slide-title">WRITE THE LISTENER</div>
+            <div class="slide-sub">Manual Setup &mdash; Step 2</div>
+            <div class="slide-body-text">Paste the entire block shown into the Admin PowerShell window and press Enter. This writes the USB polling loop to disk at <code>C:\Windows\Temp\shield_listener.ps1</code>.<br><br>Verify with: <code>Get-Content "C:\Windows\Temp\shield_listener.ps1"</code> &mdash; output should begin with <code>while ($true)</code>.</div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">PowerShell (Admin)</div><button class="copy-pill" onclick="cp2(this)">copy</button></div>
+              <div class="term-body"><pre><span class="t-prompt">PS&gt; </span><span class="t-cmd">@'
+while ($true) {
+    $d = Get-WmiObject Win32_LogicalDisk |
+      Where-Object { $_.VolumeName -eq "SHIELD" }
+    foreach ($drive in $d) {
+        $exe = $drive.DeviceID + "\shield.exe"
+        if (Test-Path $exe) {
+            Start-Process $exe -Verb RunAs
+            exit
+        }
+    }
+    Start-Sleep -Milliseconds 500
+}
+'@ | Set-Content -Path "C:\Windows\Temp\shield_listener.ps1" -Encoding UTF8</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s6">
+          <div class="slide-left">
+            <div class="slide-step">06</div>
+            <div class="slide-title">REGISTER THE TASK</div>
+            <div class="slide-sub">Manual Setup &mdash; Step 3</div>
+            <div class="slide-body-text">Paste these four lines one at a time. The scheduled task runs the listener at every login with highest privileges.<br><br>On success you will see <code>SHIELD_KillSwitch</code> with state <strong>Ready</strong> or <strong>Running</strong>.<br><br>Note: <code>Get-ScheduledTask</code> may throw an XML error on retrieval &mdash; this is a Windows bug and does not affect functionality.</div>
+          </div>
+          <div class="slide-right">
+            <div class="term">
+              <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">PowerShell (Admin)</div><button class="copy-pill" onclick="cp3(this)">copy all</button></div>
+              <div class="term-body"><pre><span class="t-prompt">PS&gt; </span><span class="t-cmd">$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument '-WindowStyle Hidden -NonInteractive -ExecutionPolicy Bypass -File "C:\Windows\Temp\shield_listener.ps1"'</span>
+<span class="t-prompt">PS&gt; </span><span class="t-cmd">$trigger = New-ScheduledTaskTrigger -AtLogOn</span>
+<span class="t-prompt">PS&gt; </span><span class="t-cmd">$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0</span>
+<span class="t-prompt">PS&gt; </span><span class="t-cmd">Register-ScheduledTask -TaskName "SHIELD_KillSwitch" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force</span>
+<span class="t-ok">
+TaskName          State
+--------          -----
+SHIELD_KillSwitch Ready</span></pre></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="slide" id="s7">
+          <div class="slide-left">
+            <div class="slide-step">07</div>
+            <div class="slide-title">TEST</div>
+            <div class="slide-sub">Activation</div>
+            <div class="slide-body-text">Log out and back in. The scheduled task starts the listener automatically at login.<br><br>Save all open work. Plug in the SHIELD USB.<br><br>The machine shuts down within <strong>2&ndash;5 seconds</strong>.<br><br>After rebooting, check <code>C:\Windows\Temp\shield_log.txt</code> for the full timestamped audit trail.</div>
+          </div>
+          <div class="slide-right" style="display:flex;flex-direction:column;gap:12px;padding-top:8px;">
+            <div style="border-left:2px solid var(--green);background:#2dd17408;padding:16px 20px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--green);margin-bottom:6px;">Required</div>
+              <div style="font-size:13px;color:#7a7a8c;line-height:1.6;">Save all open work before plugging in. No recovery once triggered.</div>
+            </div>
+            <div style="border-left:2px solid var(--red);background:var(--red-dim);padding:16px 20px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--red);margin-bottom:6px;">Antivirus</div>
+              <div style="font-size:13px;color:#7a7a8c;line-height:1.6;">If shield.exe is blocked, add it as a trusted exclusion in your AV. The token elevation behaviour triggers heuristic detection.</div>
+            </div>
+            <div style="border-left:2px solid var(--amber);background:#f0a50008;padding:16px 20px;">
+              <div style="font-family:var(--mono);font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber);margin-bottom:6px;">Log</div>
+              <div style="font-size:13px;color:#7a7a8c;line-height:1.6;font-family:var(--mono);font-size:11px;">C:\Windows\Temp\shield_log.txt</div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- ss-body -->
+
+      <div class="ss-footer">
+        <button class="ss-btn" id="pbtn" onclick="chS(-1)" disabled>Prev</button>
+        <div class="ss-dots" id="dots"></div>
+        <button class="ss-btn" id="nbtn" onclick="chS(1)">Next</button>
+      </div>
+    </div><!-- slideshow-wrap -->
+
+    <!-- LOG SAMPLE -->
+    <div style="margin-top:48px;">
+      <p class="eyebrow" style="margin-bottom:16px;">Audit Log &mdash; Live Test Output</p>
+      <div class="log-block">
+        <div><span class="log-ts">[2026-02-21 23:00:05]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-divider">==================================================</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:05]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> SHIELD ACTIVATED &mdash; Lockdown sequence started.</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:05]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> Privileges elevated via token manipulation.</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:05]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> Clipboard wiped.</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:06]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> Found 291 processes. Terminating all non-system processes.</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:17]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> Process termination complete.</span></div>
+        <div><span class="log-ts">[2026-02-21 23:00:17]</span> <span class="log-tag">SHIELD &gt;&gt;</span> <span class="log-msg"> Shutdown initiated. Goodbye.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- CODE -->
+<section id="code" class="section">
+  <div class="section-inner">
+    <p class="eyebrow">Code Structure</p>
+    <h2>Inside <em>killswitch.py</em></h2>
+    <p style="font-size:13px;color:var(--body);margin-bottom:32px;font-family:var(--mono);letter-spacing:.04em;">Select any function for a detailed breakdown.</p>
+    <div class="code-grid">
+      <div class="code-card" onclick="openM('c-elev')"><div class="cc-fn">elevate_privileges()</div><div class="cc-sig">-> bool</div><div class="cc-desc">Silent UAC bypass via advapi32 token manipulation. Enables SeShutdownPrivilege and SeDebugPrivilege. Falls back to SYSTEM scheduled task on failure.</div><span class="cc-tag c">Silent elevation</span></div>
+      <div class="code-card" onclick="openM('c-ep')"><div class="cc-fn">_enable_privilege()</div><div class="cc-sig">h_token, name -> void</div><div class="cc-desc">Internal helper. Defines Win32 LUID structs via ctypes and calls AdjustTokenPrivileges to enable the named privilege on the given token handle.</div><span class="cc-tag g">Win32 API</span></div>
+      <div class="code-card" onclick="openM('c-stb')"><div class="cc-fn">_scheduled_task_bypass()</div><div class="cc-sig">-> bool &middot; fallback</div><div class="cc-desc">Registers a one-shot scheduled task running as SYSTEM. Fires shutdown /s /f /t 0 immediately and deletes itself after execution.</div><span class="cc-tag a">Fallback</span></div>
+      <div class="code-card" onclick="openM('c-cc')"><div class="cc-fn">clear_clipboard()</div><div class="cc-sig">-> void</div><div class="cc-desc">Direct Win32 OpenClipboard() and EmptyClipboard() call via ctypes. Faster than spawning a PowerShell process. No external dependencies.</div><span class="cc-tag c">Win32 direct</span></div>
+      <div class="code-card" onclick="openM('c-gap')"><div class="cc-fn">get_all_processes()</div><div class="cc-sig">-> list[(pid, name)]</div><div class="cc-desc">Runs tasklist /fo csv with CREATE_NO_WINDOW flag. Parses output into (PID, name) tuples representing every process at trigger time.</div><span class="cc-tag g">Enumeration</span></div>
+      <div class="code-card" onclick="openM('c-kap')"><div class="cc-fn">kill_all_processes()</div><div class="cc-sig">-> void</div><div class="cc-desc">Spawns one thread per process and fires taskkill /F /PID on all simultaneously. 0.5s max thread join wait. Then returns regardless.</div><span class="cc-tag c">Parallel kill</span></div>
+      <div class="code-card" onclick="openM('c-fs')"><div class="cc-fn">force_shutdown()</div><div class="cc-sig">-> void &middot; no return</div><div class="cc-desc">Fires three methods simultaneously: shutdown command, InitiateSystemShutdownExW Win32 API, and a SYSTEM scheduled task nuclear fallback.</div><span class="cc-tag c">Triple method</span></div>
+      <div class="code-card" onclick="openM('c-rs')"><div class="cc-fn">run_shield()</div><div class="cc-sig">-> void &middot; conductor</div><div class="cc-desc">Master function called from __main__. Orchestrates the full sequence and sleeps 10s at end to keep the process alive for shutdown to complete.</div><span class="cc-tag g">Entry point</span></div>
+      <div class="code-card" onclick="openM('c-le')"><div class="cc-fn">log_event()</div><div class="cc-sig">message: str -> void</div><div class="cc-desc">Writes timestamped entries to shield_log.txt. Always wrapped in try/except &mdash; a logging failure never blocks the shutdown sequence.</div><span class="cc-tag g">Audit trail</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- FLOW -->
+<section id="flow" class="section">
+  <div class="section-inner">
+    <p class="eyebrow">Execution Flow</p>
+    <h2>USB In &rarr; Machine <em>Dark</em></h2>
+    <p style="font-size:13px;color:var(--body);margin-bottom:40px;font-family:var(--mono);">Select any step for detail.</p>
+    <div class="flow-list">
+
+      <div class="flow-item" onclick="openM('f-1')">
+        <div class="flow-left"><div class="flow-circle">01</div><div class="flow-connector"></div></div>
+        <div class="flow-right"><div class="flow-label">Physical Trigger</div><div class="flow-title">SHIELD USB inserted into machine</div><div class="flow-desc">Polling loop checks for drive every 500ms.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+      <div class="flow-item" onclick="openM('f-2')">
+        <div class="flow-left"><div class="flow-circle">02</div><div class="flow-connector"></div></div>
+        <div class="flow-right"><div class="flow-label">Detection &middot; PowerShell</div><div class="flow-title">VolumeName == "SHIELD" and shield.exe present</div><div class="flow-desc">Any other USB ignored entirely.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+      <div class="flow-item" onclick="openM('f-3')">
+        <div class="flow-left"><div class="flow-circle">03</div><div class="flow-connector"></div></div>
+        <div class="flow-right"><div class="flow-label">Elevation &middot; advapi32</div><div class="flow-title">Privileges acquired silently &mdash; no UAC</div><div class="flow-desc">SeShutdownPrivilege + SeDebugPrivilege via token manipulation.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+      <div class="flow-item" onclick="openM('f-4')">
+        <div class="flow-left"><div class="flow-circle">04</div><div class="flow-connector"></div></div>
+        <div class="flow-right"><div class="flow-label">Wipe &middot; user32</div><div class="flow-title">Clipboard cleared via Win32 API</div><div class="flow-desc">OpenClipboard() to EmptyClipboard(). Milliseconds.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+      <div class="flow-item" onclick="openM('f-5')">
+        <div class="flow-left"><div class="flow-circle">05</div><div class="flow-connector"></div></div>
+        <div class="flow-right"><div class="flow-label">Kill &middot; Parallel threads &middot; 0.5s max</div><div class="flow-title">All non-system processes terminated simultaneously</div><div class="flow-desc">One thread per process. taskkill /F /PID on all.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+      <div class="flow-item" onclick="openM('f-6')">
+        <div class="flow-left"><div class="flow-circle">06</div></div>
+        <div class="flow-right"><div class="flow-label">Shutdown &middot; Three simultaneous methods</div><div class="flow-title" style="color:var(--red);">Machine powers off</div><div class="flow-desc">Main thread holds for 10s to ensure completion.</div><div class="flow-cta">Detail &rarr;</div></div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<hr class="rule">
+
+<!-- ETHICS -->
+<section id="ethics" class="section">
+  <div class="section-inner">
+    <p class="eyebrow">Responsible Use</p>
+    <h2>White-Hat <em>Principles</em></h2>
+    <div class="alert info" style="margin-bottom:32px;">
+      <div class="alert-icon">NOTE</div>
+      <p>Publishing security tooling is standard practice in the infosec community. What separates white-hat from misuse is <strong>intent, documentation, and scope</strong>. SHIELD is built for systems you own and authorised to protect.</p>
+    </div>
+    <div class="ethics-grid" style="margin-bottom:40px;">
+      <div class="ethics-col do">
+        <div class="ethics-heading">PERMITTED</div>
+        <ul class="ethics-list">
+          <li>Deploy on devices you own or have explicit written authorisation to protect</li>
+          <li>Publish source code only &mdash; never distribute compiled executables</li>
+          <li>Document intent clearly in README and licence</li>
+          <li>Test in a controlled, isolated environment before deployment</li>
+          <li>Pursue certifications: CEH, CompTIA Security+, OSCP</li>
+          <li>Engage the security community via CTFs and bug bounty programmes</li>
+        </ul>
+      </div>
+      <div class="ethics-col dont">
+        <div class="ethics-heading">PROHIBITED</div>
+        <ul class="ethics-list">
+          <li>Deploy on any machine you do not own without written permission</li>
+          <li>Distribute pre-compiled .exe files of this or any security tool</li>
+          <li>Modify to trigger on any USB &mdash; the SHIELD label is the safety gate</li>
+          <li>Use to cause disruption, data loss, or denial of service</li>
+          <li>Deploy on workplace machines without explicit IT authorisation</li>
+          <li>Remove or alter the ethical disclaimer in public distributions</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="term">
+      <div class="term-bar"><div class="tb r"></div><div class="tb y"></div><div class="tb g"></div><div class="tl">Legal reference &mdash; jurisdictions</div></div>
+      <div class="term-body"><pre><span class="t-kw">UK</span>   Computer Misuse Act 1990
+<span class="t-kw">USA</span>  Computer Fraud and Abuse Act (CFAA)
+<span class="t-kw">EU</span>   Directive 2013/40/EU on attacks against information systems
+<span class="t-kw">AUS</span>  Criminal Code Act 1995, Part 10.7
+
+<span class="t-cm">Common rule across all jurisdictions: own it, or hold explicit written permission.</span></pre></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-left">SHIEL<span>D</span></div>
+  <div class="footer-right">
+    USB Kill Switch &mdash; Defensive Security<br>
+    Built by <a href="https://github.com/SaruProDev">SaruProDev</a><br>
+    Use responsibly. Protect, don't harm.
+  </div>
+</footer>
+
+<!-- MODAL OVERLAY -->
+<div class="overlay" id="ov" onclick="closeMExt(event)">
+  <div class="modal" id="mbox">
+    <div class="modal-top">
+      <div class="modal-title" id="mtitle"></div>
+      <button class="modal-x" onclick="closeM()">&#x2715;</button>
+    </div>
+    <div class="modal-sub" id="msub"></div>
+    <div class="modal-content" id="mbody"></div>
+  </div>
+</div>
+
+<script>
+// ── MODAL DATA ───────────────────────────────────────────────
+const MD = {
+  'm-uac': { t:'Silent UAC Bypass', s:'Elevation &middot; advapi32 token manipulation', b:`<p>Windows UAC normally presents a confirmation dialog when a program requests elevated privileges. SHIELD bypasses this by directly manipulating its own process token using the Win32 advapi32 API &mdash; the same mechanism Windows uses internally.</p><p>Sequence: <code>OpenProcessToken()</code> acquires a handle to the current process token. <code>LookupPrivilegeValueW()</code> resolves the target privilege name to a LUID. <code>AdjustTokenPrivileges()</code> enables it on the token. The entire operation completes in under a millisecond with no visible dialog.</p><p>If the token method fails, a fallback registers a one-shot scheduled task running as SYSTEM &mdash; the highest privilege level available on Windows, above Administrator.</p>` },
+  'm-kill': { t:'Parallel Process Termination', s:'Kill &middot; Threading strategy', b:`<p>Rather than maintaining a hardcoded list of applications, SHIELD takes a live snapshot of every running process at trigger time using <code>tasklist /fo csv</code>, then spawns one thread per process and calls <code>taskkill /F /PID</code> on all of them simultaneously.</p><p>A small whitelist of critical system processes is preserved: <code>csrss.exe</code>, <code>lsass.exe</code>, <code>winlogon.exe</code>, and others Windows requires to execute shutdown correctly. Terminating those would cause a kernel panic before shutdown completes.</p><p>Maximum thread join wait is <strong>0.5 seconds</strong>. After that, the function returns and shutdown fires regardless of whether all threads have finished.</p>` },
+  'm-shutdown': { t:'Triple Shutdown Redundancy', s:'Shutdown &middot; Three simultaneous methods', b:`<p>Any single shutdown method can be blocked by a hung process, a protected service, or security software. SHIELD fires three methods simultaneously to guarantee at least one executes:</p><p><strong>Method 1:</strong> <code>shutdown /s /f /t 0</code> via subprocess. The /f flag forces all applications closed.</p><p><strong>Method 2:</strong> <code>InitiateSystemShutdownExW()</code> via the Win32 advapi32 DLL directly &mdash; bypasses the command layer entirely.</p><p><strong>Method 3:</strong> A SYSTEM-level scheduled task running <code>shutdown /s /f /t 0</code> at the highest privilege level Windows provides.</p><p>The main thread then sleeps for 10 seconds to keep the Python process alive long enough for all three commands to be fully received and processed by Windows.</p>` },
+
+  'c-elev': { t:'elevate_privileges()', s:'Silent UAC bypass &middot; advapi32', b:`<p>Entry point for privilege acquisition. Attempts the Win32 token manipulation approach first by calling <code>_enable_privilege()</code> twice &mdash; once for <code>SeShutdownPrivilege</code> and once for <code>SeDebugPrivilege</code>.</p><p>If the token approach fails for any reason, it calls <code>_scheduled_task_bypass()</code> as a fallback. In either case, <code>run_shield()</code> continues execution &mdash; the shutdown attempt is made regardless of whether elevation fully succeeded.</p>` },
+  'c-ep': { t:'_enable_privilege()', s:'Win32 LUID struct manipulation', b:`<p>Internal helper that performs the actual Windows API work. Defines three C-compatible structs using ctypes: <code>LUID</code>, <code>LUID_AND_ATTRIBUTES</code>, and <code>TOKEN_PRIVILEGES</code>.</p><p>Calls <code>LookupPrivilegeValueW</code> to resolve the privilege name to its LUID, populates the <code>TOKEN_PRIVILEGES</code> struct with the LUID and the <code>SE_PRIVILEGE_ENABLED</code> attribute flag, then calls <code>AdjustTokenPrivileges</code> to apply it to the given token handle.</p>` },
+  'c-stb': { t:'_scheduled_task_bypass()', s:'SYSTEM-level fallback', b:`<p>Creates a one-shot scheduled task via <code>schtasks /create</code> that runs as SYSTEM &mdash; the highest privilege level on Windows, above any user account including Administrator. The task executes <code>shutdown /s /f /t 0</code> immediately on start.</p><p>A deletion command is chained to the same invocation so the task removes itself after firing, leaving no trace in Task Scheduler.</p>` },
+  'c-cc': { t:'clear_clipboard()', s:'Win32 user32 direct call', b:`<p>Calls the Win32 user32 DLL directly using ctypes rather than spawning an external process. Sequence: <code>OpenClipboard(0)</code> opens the clipboard with no owner window handle, <code>EmptyClipboard()</code> frees and removes all data from all clipboard formats, <code>CloseClipboard()</code> releases the clipboard.</p><p>This removes passwords, authentication tokens, API keys, and any other sensitive content currently in the clipboard before the machine shuts down.</p>` },
+  'c-gap': { t:'get_all_processes()', s:'Live process enumeration', b:`<p>Runs <code>tasklist /fo csv /nh</code> with the <code>CREATE_NO_WINDOW</code> creation flag so no terminal window flashes on screen. Parses the CSV output line by line, extracting the process name from column 0 and the PID from column 1 for each row.</p><p>Returns a list of <code>(pid, name)</code> tuples representing a live snapshot of every process running at the exact moment SHIELD was triggered.</p>` },
+  'c-kap': { t:'kill_all_processes()', s:'Parallel thread kill &middot; 0.5s max', b:`<p>Gets the full process list from <code>get_all_processes()</code>, filters out anything in <code>SYSTEM_SAFE</code>, then spawns a daemon thread for each remaining process that runs <code>taskkill /F /PID [pid]</code>.</p><p>All threads are started in a tight loop so they fire effectively simultaneously rather than sequentially. Each thread is joined with a timeout of 0.5 seconds. After the join loop completes, the function returns regardless of thread state and shutdown proceeds.</p>` },
+  'c-fs': { t:'force_shutdown()', s:'Three simultaneous shutdown methods', b:`<p>All three methods are initiated in rapid succession without waiting for any to complete:</p><p><strong>1.</strong> <code>subprocess.Popen(["shutdown", "/s", "/f", "/t", "0"])</code> &mdash; non-blocking, does not wait for the process.<br><strong>2.</strong> <code>ctypes.windll.advapi32.InitiateSystemShutdownExW(None, None, 0, True, False, 0x00080000)</code> &mdash; direct Win32 call, reason code maps to hardware failure.<br><strong>3.</strong> A SYSTEM scheduled task created and run inline via schtasks.</p>` },
+  'c-rs': { t:'run_shield()', s:'Master conductor', b:`<p>The only function invoked from <code>__main__</code>. Calls every component in the correct order: <code>elevate_privileges()</code> &rarr; <code>clear_clipboard()</code> &rarr; <code>kill_all_processes()</code> &rarr; <code>force_shutdown()</code> &rarr; <code>time.sleep(10)</code>.</p><p>The final <code>sleep(10)</code> is essential. Without it, Python exits almost immediately after firing the shutdown commands, potentially orphaning them before Windows has fully processed the requests. The 10-second hold ensures the shutdown goes through regardless of system load.</p>` },
+  'c-le': { t:'log_event()', s:'Timestamped audit trail', b:`<p>Appends a timestamped line to <code>C:\\Windows\\Temp\\shield_log.txt</code> in the format <code>[YYYY-MM-DD HH:MM:SS] SHIELD >> message</code>. The file is opened in append mode so multiple trigger events accumulate in a single log.</p><p>The entire function body is wrapped in a bare <code>try/except</code>. A log write failure &mdash; due to permissions, a full disk, or any other reason &mdash; silently passes and never interrupts the shutdown sequence.</p>` },
+
+  'f-1': { t:'USB Insertion &mdash; Physical Trigger', s:'Polling loop detection', b:`<p>The SHIELD listener runs a <code>while($true)</code> loop in PowerShell that calls <code>Get-WmiObject Win32_LogicalDisk</code> every <strong>500 milliseconds</strong>, iterating every connected logical disk and checking its VolumeName property.</p><p>This polling approach replaced the original WMI event subscription (<code>Register-WmiEvent</code>), which consistently showed <code>NotStarted</code> job state on Windows 11 due to session isolation issues with WMI event consumers in scheduled tasks. The polling loop is simpler and confirmed reliable across multiple test sessions.</p>` },
+  'f-2': { t:'Label Check &mdash; The Safety Gate', s:'VolumeName filter + exe presence check', b:`<p>The loop applies a <code>Where-Object</code> filter for <code>$_.VolumeName -eq "SHIELD"</code> and then calls <code>Test-Path</code> to verify <code>shield.exe</code> exists at the root of the matching drive. Both conditions must pass.</p><p>This two-condition gate means any USB without the exact SHIELD label is silently ignored on every polling cycle. Only the specific, intentionally prepared kill switch drive triggers the sequence &mdash; making it safe to operate alongside other USB peripherals.</p>` },
+  'f-3': { t:'Privilege Elevation', s:'advapi32 token API + SYSTEM fallback', b:`<p>shield.exe opens its own process token and enables two privileges via the Win32 advapi32 API: <strong>SeShutdownPrivilege</strong>, which permits issuing system shutdown commands, and <strong>SeDebugPrivilege</strong>, which permits terminating processes owned by other users or protected by security descriptors.</p><p>If the token approach fails, a fallback creates a scheduled task running as SYSTEM &mdash; the service account with the highest privilege level on any Windows machine, above all user accounts including Administrator.</p>` },
+  'f-4': { t:'Clipboard Wipe', s:'Win32 user32 direct', b:`<p>A direct Win32 API call sequence: <code>OpenClipboard(0)</code>, <code>EmptyClipboard()</code>, <code>CloseClipboard()</code> via ctypes. Completes in milliseconds.</p><p>The clipboard is a common vector for sensitive data exfiltration &mdash; passwords copied from a password manager, session tokens, API keys, or any other credential that was last copied are all cleared before shutdown, preventing recovery from a memory dump or hibernation file.</p>` },
+  'f-5': { t:'Parallel Process Kill', s:'Threading &middot; 0.5s max', b:`<p>Every running process is enumerated live. One thread per non-system process fires <code>taskkill /F /PID</code> simultaneously. The force flag closes applications without triggering save dialogs or waiting for graceful exit.</p><p>A small whitelist of system processes required for clean shutdown is preserved. The maximum thread join wait is 0.5 seconds &mdash; after which the function returns and shutdown fires regardless of whether all kills completed. This reduces the previous 3-second maximum wait to sub-second while maintaining reliability.</p>` },
+  'f-6': { t:'Forced Shutdown', s:'Three methods &middot; 10s hold', b:`<p>Three shutdown methods fire in rapid succession: the standard Windows shutdown command, the <code>InitiateSystemShutdownExW</code> Win32 API call, and a SYSTEM-level scheduled task. All execute within milliseconds of each other from three different privilege layers.</p><p>The earlier failure mode &mdash; where shield.exe was detected and launched but the machine did not shut down &mdash; was caused by the Python process exiting before the shutdown commands completed. The <code>time.sleep(10)</code> in <code>run_shield()</code> holds the process alive for 10 seconds, resolving this entirely.</p>` },
+};
+
+function openM(k) {
+  const d = MD[k]; if (!d) return;
+  document.getElementById('mtitle').innerHTML = d.t;
+  document.getElementById('msub').innerHTML = d.s;
+  document.getElementById('mbody').innerHTML = d.b;
+  document.getElementById('ov').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeM() {
+  document.getElementById('ov').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeMExt(e) { if (e.target === document.getElementById('ov')) closeM(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeM(); });
+
+// ── SLIDESHOW ─────────────────────────────────────────────────
+const TITLES = [
+  'Step 01 &mdash; Verify Python',
+  'Step 02 &mdash; Build shield.exe',
+  'Step 03 &mdash; Label the USB',
+  'Step 04 &mdash; Open PowerShell as Admin',
+  'Step 05 &mdash; Write the Listener',
+  'Step 06 &mdash; Register the Task',
+  'Step 07 &mdash; Test',
+];
+let cur = 1; const TOT = 7;
+(function buildDots() {
+  const c = document.getElementById('dots');
+  for (let i = 1; i <= TOT; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 1 ? ' active' : '');
+    d.onclick = () => goS(i); c.appendChild(d);
+  }
+})();
+function goS(n) {
+  document.getElementById('s' + cur).classList.remove('active');
+  document.querySelectorAll('.dot')[cur - 1].classList.remove('active');
+  cur = n;
+  document.getElementById('s' + cur).classList.add('active');
+  document.querySelectorAll('.dot')[cur - 1].classList.add('active');
+  document.getElementById('ss-title').innerHTML = TITLES[cur - 1];
+  document.getElementById('ss-ct').textContent = String(cur).padStart(2,'0') + ' / ' + String(TOT).padStart(2,'0');
+  document.getElementById('pbtn').disabled = cur === 1;
+  document.getElementById('nbtn').disabled = cur === TOT;
+}
+function chS(d) { const n = cur + d; if (n >= 1 && n <= TOT) goS(n); }
+
+// ── NAV SCROLL ────────────────────────────────────────────────
+function go(id) { document.getElementById(id).scrollIntoView({ behavior: 'smooth' }); }
+
+// ── COPY BUTTONS ──────────────────────────────────────────────
+function cp(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    const o = btn.textContent; btn.textContent = 'Copied'; btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = o; btn.classList.remove('ok'); }, 2000);
+  });
+}
+function cp2(btn) {
+  const t = `@'\nwhile ($true) {\n    $d = Get-WmiObject Win32_LogicalDisk | Where-Object { $_.VolumeName -eq "SHIELD" }\n    foreach ($drive in $d) {\n        $exe = $drive.DeviceID + "\\shield.exe"\n        if (Test-Path $exe) { Start-Process $exe -Verb RunAs; exit }\n    }\n    Start-Sleep -Milliseconds 500\n}\n'@ | Set-Content -Path "C:\\Windows\\Temp\\shield_listener.ps1" -Encoding UTF8`;
+  cp(t, btn);
+}
+function cp3(btn) {
+  const t = `$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument '-WindowStyle Hidden -NonInteractive -ExecutionPolicy Bypass -File "C:\\Windows\\Temp\\shield_listener.ps1"'\n$trigger = New-ScheduledTaskTrigger -AtLogOn\n$settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0\nRegister-ScheduledTask -TaskName "SHIELD_KillSwitch" -Action $action -Trigger $trigger -Settings $settings -RunLevel Highest -Force`;
+  cp(t, btn);
+}
+
+// ── STAT COUNTERS ─────────────────────────────────────────────
+function animCounters() {
+  document.querySelectorAll('[data-target]').forEach(el => {
+    const target = parseInt(el.dataset.target);
+    const dur = 1600; const start = performance.now();
+    (function tick(now) {
+      const p = Math.min((now - start) / dur, 1);
+      const ease = 1 - Math.pow(1 - p, 4);
+      el.textContent = Math.round(ease * target);
+      if (p < 1) requestAnimationFrame(tick);
+    })(performance.now());
+  });
+}
+
+// ── INTERSECTION OBSERVERS ────────────────────────────────────
+const io = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'none';
+      e.target.style.transition = 'opacity .6s ease, transform .6s ease';
+    }
+  });
+}, { threshold: 0.06 });
+
+document.querySelectorAll('.feature-card,.code-card,.flow-item,.ethics-col,.stat,.log-block').forEach(el => {
+  el.style.opacity = '0'; el.style.transform = 'translateY(14px)'; io.observe(el);
+});
+
+const statIO = new IntersectionObserver(entries => {
+  if (entries[0].isIntersecting) { animCounters(); statIO.disconnect(); }
+}, { threshold: 0.4 });
+const sr = document.querySelector('.stats-row');
+if (sr) statIO.observe(sr);
+</script>
+</body>
+</html>
