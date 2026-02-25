@@ -1,4 +1,4 @@
-# 🛡️ SHIELD — USB Emergency Kill Switch
+# SHIELD — USB Emergency Kill Switch
 
 ![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11-blue?logo=windows)
@@ -188,7 +188,7 @@ pip install pyinstaller --break-system-packages
 
 Always wrap paths in quotes:
 ```powershell
-cd "C:\Cybersecurity Projects\SHIELD"
+cd "C:\PATH\TO\YOUR\SHIELD"
 ```
 
 ---
